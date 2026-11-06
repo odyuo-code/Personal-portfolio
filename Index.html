@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Blooming Flower Animation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #0b0f19;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        function resize() {
+            canvas.width = window.innerWidth * window.devicePixelRatio;
+            canvas.height = window.innerHeight * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        let startTime = null;
+        const duration = 9000; // Total animation cycle in milliseconds
+
+        function easeOutCubic(t) {
+            return 1 - Math.pow(1 - t, 3);
+        }
+
+        function easeInOutSine(t) {
+            return -(Math.cos(Math.PI * t) - 1) / 2;
+        }
+
+        function drawLeaf(x, y, length, width, angle, progress) {
+            if (progress <= 0) return;
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.scale(progress, progress);
+
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.quadraticCurveTo(length * 0.5, width, length, 0);
+            ctx.quadraticCurveTo(length * 0.5, -width, 0, 0);
+            ctx.fillStyle = '#2e7d32';
+            ctx.fill();
+
+            // Leaf vein
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(length * 0.8, 0);
+            ctx.strokeStyle = '#4caf50';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawPetal(x, y, angle, length, width, progress, color1, color2) {
+            if (progress <= 0) return;
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.scale(progress, progress);
+
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.bezierCurveTo(-width, length * 0.3, -width * 1.5, length * 0.8, 0, length);
+            ctx.bezierCurveTo(width * 1.5, length * 0.8, width, length * 0.3, 0, 0);
+
+            let grad = ctx.createLinearGradient(0, 0, 0, length);
+            grad.addColorStop(0, color1);
+            grad.addColorStop(1, color2);
+            ctx.fillStyle = grad;
+            ctx.shadowColor = 'rgba(233, 30, 99, 0.4)';
+            ctx.shadowBlur = 10;
+            ctx.fill();
+
+            // Petal texture line
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, length * 0.7);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function animate(timestamp) {
+            if (!startTime) startTime = timestamp;
+            let elapsed = (timestamp - startTime) % (duration + 2000); // pause a bit at the end
+            let p = Math.min(1, elapsed / duration);
+
+            let width = window.innerWidth;
+            let height = window.innerHeight;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Center bottom origin for stem
+            let startX = width / 2;
+            let startY = height;
+            let endX = width / 2;
+            let endY = height * 0.35;
+
+            // --- PHASE 1: Stem Growth (0.0 to 0.35) ---
+            let stemP = Math.min(1, p / 0.35);
+            let currentStemP = easeOutCubic(stemP);
+
+            let curX = startX + (endX - startX) * currentStemP;
+            let curY = startY + (endY - startY) * currentStemP;
+
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            let cpX = startX + (width * 0.05);
+            let cpY = startY - (startY - endY) * 0.5;
+            ctx.quadraticCurveTo(cpX, cpY, curX, curY);
+            ctx.strokeStyle = '#388e3c';
+            ctx.lineWidth = 5;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            // --- PHASE 2: Leaves & Branching (0.25 to 0.55) ---
+            if (p >= 0.25) {
+                let leafP = Math.min(1, (p - 0.25) / 0.3);
+                let easedLeafP = easeOutCubic(leafP);
+                
+                // Left leaf
+                let lX = startX + (endX - startX) * 0.45;
+                let lY = startY + (endY - startY) * 0.45;
+                drawLeaf(lX, lY, 70, 22, -Math.PI / 4, easedLeafP);
+
+                // Right leaf
+                let rX = startX + (endX - startX) * 0.7;
+                let rY = startY + (endY - startY) * 0.7;
+                drawLeaf(rX, rY, 65, 20, Math.PI / 3.5, easedLeafP);
+            }
+
+            // --- PHASE 3: Flower Bloom (0.5 to 1.0) ---
+            if (p >= 0.5) {
+                let bloomP = Math.min(1, (p - 0.5) / 0.5);
+                let easedBloom = easeInOutSine(bloomP);
+
+                let fx = endX;
+                let fy = endY;
+
+                // Outer Petals (Layer 1 - Darker Pink)
+                let numOuter = 8;
+                for (let i = 0; i < numOuter; i++) {
+                    let angle = (i / numOuter) * Math.PI * 2 + (1 - easedBloom) * 0.2;
+                    drawPetal(fx, fy, angle, 90, 28, easedBloom, '#ad1457', '#ec407a');
+                }
+
+                // Inner Petals (Layer 2 - Bright Pink)
+                let numInner = 7;
+                for (let i = 0; i < numInner; i++) {
+                    let angle = (i / numInner) * Math.PI * 2 + Math.PI / numInner - (1 - easedBloom) * 0.3;
+                    drawPetal(fx, fy, angle, 70, 22, easedBloom, '#d81b60', '#f48fb1');
+                }
+
+                // Core Petals (Layer 3 - Light Pink)
+                let numCore = 6;
+                for (let i = 0; i < numCore; i++) {
+                    let angle = (i / numCore) * Math.PI * 2 + 0.3;
+                    drawPetal(fx, fy, angle, 45, 16, easedBloom, '#f06292', '#fce4ec');
+                }
+
+                // Center Stamens & Pistil (Layer 4)
+                if (bloomP > 0.6) {
+                    let stamenP = (bloomP - 0.6) / 0.4;
+                    ctx.save();
+                    ctx.translate(fx, fy);
+                    ctx.scale(stamenP, stamenP);
+
+                    // Central glowing receptacle
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 12, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffeb3b';
+                    ctx.shadowColor = '#ffc107';
+                    ctx.shadowBlur = 15;
+                    ctx.fill();
+
+                    // Tiny pollen filaments
+                    for (let s = 0; s < 12; s++) {
+                        let sa = (s / 12) * Math.PI * 2;
+                        let sx = Math.cos(sa) * 16;
+                        let sy = Math.sin(sa) * 16;
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        ctx.lineTo(sx, sy);
+                        ctx.strokeStyle = '#fbc02d';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+
+                        ctx.beginPath();
+                        ctx.arc(sx, sy, 3, 0, Math.PI * 2);
+                        ctx.fillStyle = '#ff8f00';
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html>
